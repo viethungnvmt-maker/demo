@@ -514,7 +514,7 @@ const App: React.FC = () => {
             ĐĂNG KÝ KHOÁ HỌC THỰC CHIẾN VIẾT SKKN, TẠO APP DẠY HỌC, TẠO MÔ PHỎNG TRỰC QUAN
           </p>
           <p className="promo-highlight">CHỈ VỚI 1 CÂU LỆNH</p>
-          <button className="promo-btn">ĐĂNG KÝ NGAY</button>
+          <a href="https://web.facebook.com/viethungnvmt/" target="_blank" rel="noopener noreferrer" className="promo-btn">ĐĂNG KÝ NGAY</a>
         </div>
         <p className="contact-info">
           Mọi thông tin vui lòng liên hệ: <br />
