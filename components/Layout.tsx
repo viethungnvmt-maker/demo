@@ -1,13 +1,15 @@
 
 import React from 'react';
-import { Sparkles, FileText, Cpu, ChevronRight } from 'lucide-react';
+import { Sparkles, FileText, Cpu, ChevronRight, Settings } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
   currentStep: string;
+  onSettingsClick?: () => void;
+  hasApiKey?: boolean;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, currentStep }) => {
+const Layout: React.FC<LayoutProps> = ({ children, currentStep, onSettingsClick, hasApiKey = false }) => {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
@@ -23,17 +25,33 @@ const Layout: React.FC<LayoutProps> = ({ children, currentStep }) => {
             </div>
           </div>
 
-          <nav className="flex items-center gap-2 bg-white/10 p-1.5 rounded-full backdrop-blur-sm overflow-x-auto max-w-full">
-            <StepItem active={currentStep === 'SELECTION'} label="Chọn chuyên gia" />
-            <ChevronRight className="w-4 h-4 text-white/50" />
-            <StepItem active={currentStep === 'UPLOAD'} label="Tải lên" />
-            <ChevronRight className="w-4 h-4 text-white/50" />
-            <StepItem active={currentStep === 'ANALYZING'} label="Phân tích" />
-            <ChevronRight className="w-4 h-4 text-white/50" />
-            <StepItem active={currentStep === 'REVIEW'} label="Chỉnh sửa" />
-            <ChevronRight className="w-4 h-4 text-white/50" />
-            <StepItem active={currentStep === 'EXPORT'} label="Hoàn thành" />
-          </nav>
+          <div className="flex items-center gap-4">
+            <nav className="flex items-center gap-2 bg-white/10 p-1.5 rounded-full backdrop-blur-sm overflow-x-auto max-w-full">
+              <StepItem active={currentStep === 'SELECTION'} label="Chọn chuyên gia" />
+              <ChevronRight className="w-4 h-4 text-white/50" />
+              <StepItem active={currentStep === 'UPLOAD'} label="Tải lên" />
+              <ChevronRight className="w-4 h-4 text-white/50" />
+              <StepItem active={currentStep === 'ANALYZING'} label="Phân tích" />
+              <ChevronRight className="w-4 h-4 text-white/50" />
+              <StepItem active={currentStep === 'REVIEW'} label="Chỉnh sửa" />
+              <ChevronRight className="w-4 h-4 text-white/50" />
+              <StepItem active={currentStep === 'EXPORT'} label="Hoàn thành" />
+            </nav>
+
+            {/* Settings Button */}
+            <button
+              onClick={onSettingsClick}
+              className="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-xl backdrop-blur-sm transition-all"
+            >
+              <Settings className="w-5 h-5" />
+              <div className="text-left hidden sm:block">
+                <span className="text-sm font-medium">API Key</span>
+                {!hasApiKey && (
+                  <p className="text-xs text-red-300 font-medium">Lấy API key để sử dụng app</p>
+                )}
+              </div>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -62,3 +80,4 @@ const StepItem: React.FC<{ active: boolean; label: string }> = ({ active, label 
 );
 
 export default Layout;
+
