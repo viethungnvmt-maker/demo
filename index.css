@@ -508,13 +508,15 @@ body {
 }
 
 .promo-btn {
-  margin-top: 1rem;
+  display: inline-block;
+  margin-top: 1.5rem;
   padding: 0.75rem 2rem;
   background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
   border: none;
   border-radius: 25px;
   color: white;
   font-weight: 600;
+  text-decoration: none;
   cursor: pointer;
   transition: all 0.2s;
 }
