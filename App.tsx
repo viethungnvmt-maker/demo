@@ -1,221 +1,610 @@
 
-import React, { useState, useEffect } from 'react';
-import Layout from './components/Layout';
-import FileUploader from './components/FileUploader';
-import ResultView from './components/ResultView';
-import SkillSelector from './components/SkillSelector';
-import ApiKeyModal, { DEFAULT_MODEL } from './components/ApiKeyModal';
-import { AppStep, LessonPlanData, Skill } from './types';
+import React, { useState, useEffect, useRef } from 'react';
+import { FileText, Upload, Settings, Sparkles, Key, ExternalLink, X, Check, AlertCircle, Loader2, FileDown, ChevronRight } from 'lucide-react';
 import { analyzeLessonPlan, getApiKey, setApiKey, getSelectedModel, setSelectedModel } from './services/geminiService';
-import { Loader2, CheckCircle2, FileDown } from 'lucide-react';
+import { LessonPlanData } from './types';
+
+// Danh sách môn học
+const SUBJECTS = [
+  'Toán', 'Ngữ văn', 'Tiếng Anh', 'Vật lý', 'Hóa học', 'Sinh học',
+  'Lịch sử', 'Địa lý', 'GDCD', 'Tin học', 'Công nghệ', 'Âm nhạc',
+  'Mỹ thuật', 'Thể dục', 'Khoa học tự nhiên', 'Hoạt động trải nghiệm'
+];
+
+// Danh sách khối lớp
+const GRADES = [
+  'Lớp 1', 'Lớp 2', 'Lớp 3', 'Lớp 4', 'Lớp 5',
+  'Lớp 6', 'Lớp 7', 'Lớp 8', 'Lớp 9',
+  'Lớp 10', 'Lớp 11', 'Lớp 12'
+];
+
+// Miền năng lực số
+const COMPETENCIES = [
+  'Khai thác dữ liệu và thông tin',
+  'Giao tiếp và Hợp tác',
+  'Sáng tạo nội dung số',
+  'An toàn số',
+  'Giải quyết vấn đề',
+  'Ứng dụng AI'
+];
+
+// AI Models
+const AI_MODELS = [
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', description: 'Nhanh, ổn định' },
+  { id: 'gemini-2.5-pro-preview-05-06', name: 'Gemini 2.5 Pro', description: 'Mạnh mẽ nhất' },
+  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', description: 'Nhanh chóng' }
+];
 
 const App: React.FC = () => {
-  const [step, setStep] = useState<AppStep>(AppStep.SELECTION);
-  const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
-  const [extractedText, setExtractedText] = useState<string>('');
-  const [lessonData, setLessonData] = useState<LessonPlanData | null>(null);
-  const [loadingMessage, setLoadingMessage] = useState('Đang khởi tạo AI...');
+  // Form state
+  const [subject, setSubject] = useState('Toán');
+  const [grade, setGrade] = useState('Lớp 7');
+  const [lessonFile, setLessonFile] = useState<File | null>(null);
+  const [lessonText, setLessonText] = useState('');
+  const [ppctFile, setPpctFile] = useState<File | null>(null);
+
+  // Options
+  const [analyzeOnly, setAnalyzeOnly] = useState(false);
+  const [detailedReport, setDetailedReport] = useState(false);
 
   // API Key state
-  const [hasApiKey, setHasApiKey] = useState<boolean>(false);
-  const [showApiKeyModal, setShowApiKeyModal] = useState<boolean>(false);
-  const [currentApiKey, setCurrentApiKey] = useState<string>('');
-  const [currentModel, setCurrentModel] = useState<string>(DEFAULT_MODEL);
+  const [showApiModal, setShowApiModal] = useState(false);
+  const [apiKey, setApiKeyState] = useState('');
+  const [selectedModel, setSelectedModelState] = useState('gemini-2.5-flash');
+  const [hasApiKey, setHasApiKey] = useState(false);
 
-  // Check for API key on mount
+  // App state
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
+  const [result, setResult] = useState<LessonPlanData | null>(null);
+  const [error, setError] = useState('');
+
+  // Refs
+  const lessonInputRef = useRef<HTMLInputElement>(null);
+  const ppctInputRef = useRef<HTMLInputElement>(null);
+
+  // Check API key on mount
   useEffect(() => {
     const savedKey = getApiKey();
     const savedModel = getSelectedModel();
     if (savedKey) {
+      setApiKeyState(savedKey);
       setHasApiKey(true);
-      setCurrentApiKey(savedKey);
     } else {
-      // Show modal if no API key
-      setShowApiKeyModal(true);
+      setShowApiModal(true);
     }
-    setCurrentModel(savedModel);
+    setSelectedModelState(savedModel);
   }, []);
 
-  const handleSaveApiKey = (apiKey: string, model: string) => {
-    setApiKey(apiKey);
-    setSelectedModel(model);
-    setCurrentApiKey(apiKey);
-    setCurrentModel(model);
+  // Handle file upload
+  const handleFileUpload = async (file: File, type: 'lesson' | 'ppct') => {
+    if (type === 'lesson') {
+      setLessonFile(file);
+
+      // Extract text from file
+      if (file.name.endsWith('.txt')) {
+        const text = await file.text();
+        setLessonText(text);
+      } else if (file.name.endsWith('.docx')) {
+        // Use mammoth for docx
+        const arrayBuffer = await file.arrayBuffer();
+        if ((window as any).mammoth) {
+          const result = await (window as any).mammoth.extractRawText({ arrayBuffer });
+          setLessonText(result.value);
+        }
+      }
+    } else {
+      setPpctFile(file);
+    }
+  };
+
+  // Handle drop
+  const handleDrop = (e: React.DragEvent, type: 'lesson' | 'ppct') => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      handleFileUpload(file, type);
+    }
+  };
+
+  // Save API settings
+  const handleSaveApiSettings = () => {
+    if (!apiKey.trim()) {
+      setError('Vui lòng nhập API Key');
+      return;
+    }
+    setApiKey(apiKey.trim());
+    setSelectedModel(selectedModel);
     setHasApiKey(true);
-    setShowApiKeyModal(false);
+    setShowApiModal(false);
+    setError('');
   };
 
-  const handleSkillSelect = (skill: Skill) => {
-    setSelectedSkill(skill);
-  };
+  // Submit form
+  const handleSubmit = async () => {
+    if (!lessonText) {
+      setError('Vui lòng tải lên file giáo án');
+      return;
+    }
+    if (!hasApiKey) {
+      setShowApiModal(true);
+      return;
+    }
 
-  const handleSkillConfirm = () => {
-    if (selectedSkill) {
-      setStep(AppStep.UPLOAD);
+    setIsLoading(true);
+    setError('');
+
+    const messages = [
+      'Đang đọc nội dung giáo án...',
+      'Phân tích cấu trúc bài học...',
+      'Đối chiếu với khung năng lực số...',
+      'Thiết kế hoạt động tích hợp CNTT...',
+      'Đang hoàn tất giáo án số hóa...'
+    ];
+
+    let msgIndex = 0;
+    const interval = setInterval(() => {
+      setLoadingMessage(messages[msgIndex % messages.length]);
+      msgIndex++;
+    }, 2500);
+
+    try {
+      const fullContent = `Môn học: ${subject}\nKhối lớp: ${grade}\n\nNội dung giáo án:\n${lessonText}`;
+      const data = await analyzeLessonPlan(fullContent);
+      setResult(data);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Có lỗi xảy ra';
+      setError(message);
+    } finally {
+      setIsLoading(false);
+      clearInterval(interval);
     }
   };
 
-  const handleFileLoaded = (text: string) => {
-    setExtractedText(text);
-    setStep(AppStep.ANALYZING);
-  };
-
-  useEffect(() => {
-    if (step === AppStep.ANALYZING && extractedText) {
-      const messages = [
-        `Đang tham vấn chuyên gia ${selectedSkill?.name}...`,
-        'Phân tích cơ hội tích hợp năng lực số...',
-        'Đối chiếu với khung năng lực Bộ Giáo dục...',
-        'Thiết kế các hoạt động học tập số...',
-        'Đang hoàn tất giáo án số hóa...'
-      ];
-
-      let msgIndex = 0;
-      const interval = setInterval(() => {
-        setLoadingMessage(messages[msgIndex % messages.length]);
-        msgIndex++;
-      }, 3000);
-
-      analyzeLessonPlan(extractedText, selectedSkill || undefined)
-        .then(data => {
-          setLessonData(data);
-          setStep(AppStep.REVIEW);
-        })
-        .catch(err => {
-          console.error(err);
-          const errorMessage = err instanceof Error ? err.message : 'Có lỗi xảy ra khi gọi AI.';
-          alert(errorMessage);
-          setStep(AppStep.SELECTION); // Go back to start on error
-        })
-        .finally(() => clearInterval(interval));
-    }
-  }, [step, extractedText, selectedSkill]);
-
-  const handleExport = (data: LessonPlanData) => {
-    setLessonData(data);
-    setStep(AppStep.EXPORT);
-  };
-
-  return (
-    <>
-      <Layout
-        currentStep={step}
-        onSettingsClick={() => setShowApiKeyModal(true)}
-        hasApiKey={hasApiKey}
-      >
-        {step === AppStep.SELECTION && (
-          <SkillSelector
-            selectedSkill={selectedSkill}
-            onSelect={handleSkillSelect}
-            onNext={handleSkillConfirm}
-          />
-        )}
-
-        {step === AppStep.UPLOAD && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="mb-6 flex items-center justify-between bg-indigo-50 p-4 rounded-xl border border-indigo-100">
-              <div className="flex items-center gap-3">
-                <div className="bg-indigo-600 text-white p-2 rounded-lg">
-                  {/* We could dynamically load the icon here if needed, but for now simple fallback */}
-                  <span className="font-bold text-lg">AI</span>
-                </div>
-                <div>
-                  <p className="text-sm text-indigo-600 font-semibold uppercase tracking-wider">Chuyên gia đang hỗ trợ</p>
-                  <h3 className="text-lg font-bold text-indigo-900">{selectedSkill?.name}</h3>
-                </div>
+  // Render result view
+  if (result) {
+    return (
+      <div className="app-container">
+        <header className="header">
+          <div className="header-content">
+            <div className="logo-section">
+              <div className="logo-icon">
+                <Sparkles size={24} color="white" />
               </div>
+              <div className="logo-text">
+                <h1>SOẠN GIÁO ÁN NĂNG LỰC SỐ</h1>
+                <p>Hỗ trợ tích hợp Năng lực số toàn cấp bởi Nguyễn Việt Hùng</p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+          <div className="form-card animate-fadeIn">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#60a5fa' }}>
+                ✅ {result.title}
+              </h2>
               <button
-                onClick={() => setStep(AppStep.SELECTION)}
-                className="text-sm text-indigo-600 hover:text-indigo-800 font-medium hover:underline"
+                onClick={() => setResult(null)}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #3b82f6',
+                  color: '#3b82f6',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  cursor: 'pointer'
+                }}
               >
-                Đổi chuyên gia
+                Soạn giáo án mới
               </button>
             </div>
-            <FileUploader onFileLoaded={handleFileLoaded} />
-          </div>
-        )}
 
-        {step === AppStep.ANALYZING && (
-          <div className="flex flex-col items-center justify-center py-20 space-y-8 animate-in fade-in zoom-in duration-500">
-            <div className="relative">
-              <div className="absolute inset-0 bg-indigo-500/20 blur-3xl rounded-full"></div>
-              <Loader2 className="w-24 h-24 text-indigo-600 animate-spin relative" />
-            </div>
-            <div className="text-center space-y-4">
-              <h3 className="text-2xl font-bold text-slate-800">Trí tuệ nhân tạo đang làm việc</h3>
-              <p className="text-slate-500 animate-pulse text-lg">{loadingMessage}</p>
-            </div>
+            {result.summary && (
+              <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '12px' }}>
+                <p style={{ color: '#e2e8f0' }}>{result.summary}</p>
+              </div>
+            )}
 
-            <div className="max-w-md w-full bg-white p-2 rounded-full border border-slate-100 overflow-hidden shadow-sm">
-              <div className="h-2 bg-indigo-600 rounded-full animate-[progress_15s_ease-in-out_infinite]" style={{ width: '40%' }}></div>
-            </div>
-          </div>
-        )}
+            <div className="section-title">Mục tiêu năng lực số</div>
+            <ul style={{ listStyle: 'none', padding: 0, marginBottom: '1.5rem' }}>
+              {result.digitalGoals.map((goal, idx) => (
+                <li key={idx} style={{ display: 'flex', gap: '10px', padding: '0.75rem 0', borderBottom: '1px solid #1e3a5f' }}>
+                  <span style={{ color: '#22c55e' }}>✓</span>
+                  <span style={{ color: '#e2e8f0' }}>{goal.description}</span>
+                </li>
+              ))}
+            </ul>
 
-        {step === AppStep.REVIEW && lessonData && (
-          <ResultView
-            data={lessonData}
-            onExport={handleExport}
-            skillName={selectedSkill?.name}
-          />
-        )}
+            <div className="section-title">Hoạt động tích hợp CNTT</div>
+            {result.activities.map((activity, idx) => (
+              <div key={idx} style={{ marginBottom: '1rem', padding: '1rem', background: '#0f172a', borderRadius: '12px', border: '1px solid #1e3a5f' }}>
+                <h4 style={{ color: '#fbbf24', marginBottom: '0.5rem' }}>{activity.name}</h4>
+                <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>{activity.digitalActivity}</p>
+                {activity.digitalTools && activity.digitalTools.length > 0 && (
+                  <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {activity.digitalTools.map((tool, i) => (
+                      <span key={i} style={{
+                        padding: '4px 12px',
+                        background: 'rgba(59, 130, 246, 0.2)',
+                        borderRadius: '20px',
+                        fontSize: '0.75rem',
+                        color: '#60a5fa'
+                      }}>
+                        {tool}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
 
-        {step === AppStep.EXPORT && lessonData && (
-          <div className="max-w-2xl mx-auto text-center space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
-            <div className="bg-green-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto shadow-inner">
-              <CheckCircle2 className="w-16 h-16 text-green-600" />
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-4xl font-black text-slate-900">Tuyệt vời!</h2>
-              <p className="text-xl text-slate-500">Giáo án tích hợp năng lực số của bạn đã sẵn sàng.</p>
-            </div>
-
-            <div className="bg-white p-10 rounded-[32px] shadow-2xl shadow-indigo-100 border border-slate-50 space-y-6">
-              <div className="flex items-center gap-6 text-left">
-                <div className="bg-indigo-600 p-5 rounded-2xl text-white shadow-lg">
-                  <FileDown className="w-10 h-10" />
+            {result.recommendedTools && result.recommendedTools.length > 0 && (
+              <>
+                <div className="section-title">Công cụ số khuyến nghị</div>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  {result.recommendedTools.map((tool, idx) => (
+                    <span key={idx} style={{
+                      padding: '8px 16px',
+                      background: 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)',
+                      borderRadius: '25px',
+                      fontSize: '0.875rem',
+                      color: 'white'
+                    }}>
+                      {tool}
+                    </span>
+                  ))}
                 </div>
+              </>
+            )}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Render loading state
+  if (isLoading) {
+    return (
+      <div className="app-container">
+        <header className="header">
+          <div className="header-content">
+            <div className="logo-section">
+              <div className="logo-icon">
+                <Sparkles size={24} color="white" />
+              </div>
+              <div className="logo-text">
+                <h1>SOẠN GIÁO ÁN NĂNG LỰC SỐ</h1>
+                <p>Hỗ trợ tích hợp Năng lực số toàn cấp bởi Nguyễn Việt Hùng</p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div className="loading-container" style={{ flex: 1 }}>
+          <div className="loading-spinner"></div>
+          <h3 className="loading-text">Trí tuệ nhân tạo đang xử lý</h3>
+          <p className="loading-subtext">{loadingMessage}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Render main form
+  return (
+    <div className="app-container">
+      {/* Header */}
+      <header className="header">
+        <div className="header-content">
+          <div className="logo-section">
+            <div className="logo-icon">
+              <Sparkles size={24} color="white" />
+            </div>
+            <div className="logo-text">
+              <h1>SOẠN GIÁO ÁN NĂNG LỰC SỐ</h1>
+              <p>Hỗ trợ tích hợp Năng lực số toàn cấp</p>
+            </div>
+          </div>
+
+          <div className="header-actions">
+            <button className="api-key-btn" onClick={() => setShowApiModal(true)}>
+              <Key size={16} />
+              Lấy API key để sử dụng app
+              <Settings size={16} />
+            </button>
+            <div className="powered-by">
+              <Sparkles size={16} />
+              Powered by Gemini
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="main-content">
+        {/* Form Section */}
+        <div className="form-card animate-fadeIn">
+          {/* Thông tin kế hoạch bài dạy */}
+          <div className="section-title">Thông tin Kế hoạch bài dạy</div>
+          <div className="form-grid">
+            <div className="form-group">
+              <label>Môn học</label>
+              <select value={subject} onChange={(e) => setSubject(e.target.value)}>
+                {SUBJECTS.map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Khối lớp</label>
+              <select value={grade} onChange={(e) => setGrade(e.target.value)}>
+                {GRADES.map(g => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Tài liệu đầu vào */}
+          <div className="upload-section">
+            <div className="section-title">Tài liệu đầu vào</div>
+            <div className="upload-grid">
+              {/* File Giáo án */}
+              <div>
+                <p className="upload-label required">File Giáo án</p>
+                <div
+                  className={`upload-box ${lessonFile ? 'active' : ''}`}
+                  onClick={() => lessonInputRef.current?.click()}
+                  onDrop={(e) => handleDrop(e, 'lesson')}
+                  onDragOver={(e) => e.preventDefault()}
+                >
+                  <div className="upload-icon">
+                    {lessonFile ? <Check size={24} /> : <Upload size={24} />}
+                  </div>
+                  <p className="upload-title">
+                    {lessonFile ? lessonFile.name : 'Tải lên Giáo án'}
+                  </p>
+                  <p className="upload-desc">
+                    {lessonFile ? 'Đã tải lên thành công' : 'Giáo án bài dạy cần tích hợp'}
+                  </p>
+                  <span className="upload-formats">Hỗ trợ .docx, .pdf</span>
+                  {!lessonFile && <p className="required-badge">⊙ Bắt buộc</p>}
+                </div>
+                <input
+                  ref={lessonInputRef}
+                  type="file"
+                  accept=".docx,.pdf,.txt"
+                  style={{ display: 'none' }}
+                  onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0], 'lesson')}
+                />
+              </div>
+
+              {/* File PPCT */}
+              <div>
+                <p className="upload-label">File Phân phối chương trình</p>
+                <div
+                  className={`upload-box ${ppctFile ? 'active' : ''}`}
+                  onClick={() => ppctInputRef.current?.click()}
+                  onDrop={(e) => handleDrop(e, 'ppct')}
+                  onDragOver={(e) => e.preventDefault()}
+                >
+                  <div className="upload-icon">
+                    {ppctFile ? <Check size={24} /> : <FileText size={24} />}
+                  </div>
+                  <p className="upload-title">
+                    {ppctFile ? ppctFile.name : 'Tải lên PPCT'}
+                  </p>
+                  <p className="upload-desc">Tài liệu tham khảo năng lực (nếu có)</p>
+                  <span className="upload-formats">Hỗ trợ .docx, .pdf</span>
+                  <p className="optional-text">Tùy chọn, Giúp AI xác định năng lực chính xác hơn</p>
+                </div>
+                <input
+                  ref={ppctInputRef}
+                  type="file"
+                  accept=".docx,.pdf,.txt"
+                  style={{ display: 'none' }}
+                  onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0], 'ppct')}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Tùy chọn nâng cao */}
+          <div className="advanced-options">
+            <div className="advanced-title">
+              <Settings size={16} />
+              Tùy chọn nâng cao
+            </div>
+            <div className="checkbox-group">
+              <label className="checkbox-item">
+                <input
+                  type="checkbox"
+                  checked={analyzeOnly}
+                  onChange={(e) => setAnalyzeOnly(e.target.checked)}
+                />
+                <span>Chỉ phân tích, không chỉnh sửa</span>
+              </label>
+              <label className="checkbox-item">
+                <input
+                  type="checkbox"
+                  checked={detailedReport}
+                  onChange={(e) => setDetailedReport(e.target.checked)}
+                />
+                <span>Kèm báo cáo chi tiết</span>
+              </label>
+            </div>
+          </div>
+
+          {/* API Key Link */}
+          <div className="api-key-link" onClick={() => setShowApiModal(true)}>
+            <Key size={14} />
+            Cấu hình API Key
+          </div>
+
+          {/* Error message */}
+          {error && (
+            <div style={{
+              marginTop: '1rem',
+              padding: '1rem',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid #ef4444',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              color: '#ef4444'
+            }}>
+              <AlertCircle size={18} />
+              {error}
+            </div>
+          )}
+
+          {/* Submit Button */}
+          <button
+            className="submit-btn"
+            onClick={handleSubmit}
+            disabled={!lessonFile}
+          >
+            <Sparkles size={20} />
+            BẮT ĐẦU SOẠN GIÁO ÁN
+          </button>
+        </div>
+
+        {/* Sidebar */}
+        <div className="sidebar">
+          {/* Hướng dẫn nhanh */}
+          <div className="guide-card">
+            <h3 className="guide-title">Hướng dẫn nhanh</h3>
+            <ul className="guide-list">
+              <li className="guide-item">
+                <span className="guide-number">1</span>
+                <span className="guide-text">Chọn môn học và khối lớp.</span>
+              </li>
+              <li className="guide-item">
+                <span className="guide-number">2</span>
                 <div>
-                  <h4 className="text-2xl font-extrabold text-slate-800">{lessonData.title}</h4>
-                  <p className="text-slate-400 font-medium">Đã bao gồm {lessonData.digitalGoals.length} mục tiêu số & {lessonData.activities.length} hoạt động học tập số.</p>
+                  <span className="guide-text"><strong>Bắt buộc:</strong> Tải lên file giáo án (docx hoặc pdf).</span>
                 </div>
-              </div>
-
-              <div className="pt-6 flex flex-col sm:flex-row gap-4">
-                <button
-                  onClick={() => window.location.reload()}
-                  className="flex-1 py-5 rounded-2xl font-bold text-slate-500 hover:bg-slate-50 transition-all border-2 border-slate-100"
-                >
-                  Làm giáo án mới
-                </button>
-                <button
-                  onClick={() => alert('Chức năng tải file .docx đang được giả lập. Trong môi trường thực tế, hệ thống sẽ sử dụng thư viện docx để tạo file.')}
-                  className="flex-[2] py-5 rounded-2xl font-bold text-white gradient-bg shadow-xl shadow-indigo-100 hover:scale-105 active:scale-95 transition-all"
-                >
-                  Tải về ngay
-                </button>
-              </div>
-            </div>
-
-            <p className="text-sm text-slate-400">
-              Mẹo: Hãy kiểm tra lại định dạng trước khi in ấn.
-            </p>
+              </li>
+              <li className="guide-item">
+                <span className="guide-number">3</span>
+                <div>
+                  <span className="guide-text guide-note">Tùy - Tải file PPCT nếu muốn AI tham khảo năng lực cụ thể của trường.</span>
+                </div>
+              </li>
+            </ul>
           </div>
-        )}
-      </Layout>
+
+          {/* Miền năng lực số */}
+          <div className="competency-card">
+            <h3 className="competency-title">Miền năng lực số</h3>
+            <ul className="competency-list">
+              {COMPETENCIES.map((comp, idx) => (
+                <li key={idx} className="competency-item">{comp}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="footer">
+        <div className="promo-banner">
+          <p className="promo-text">
+            ĐĂNG KÝ KHOÁ HỌC THỰC CHIẾN VIẾT SKKN, TẠO APP DẠY HỌC, TẠO MÔ PHỎNG TRỰC QUAN
+          </p>
+          <p className="promo-highlight">CHỈ VỚI 1 CÂU LỆNH</p>
+          <button className="promo-btn">ĐĂNG KÝ NGAY</button>
+        </div>
+        <p className="contact-info">
+          Mọi thông tin vui lòng liên hệ: <br />
+          <strong>Facebook:</strong> <a href="https://facebook.com/viethungnvmt" target="_blank" rel="noopener noreferrer">@viethungnvmt</a> • <strong>Zalo:</strong> <a href="tel:0363831337">036.38.31.337</a>
+        </p>
+      </footer>
 
       {/* API Key Modal */}
-      <ApiKeyModal
-        isOpen={showApiKeyModal}
-        onClose={() => setShowApiKeyModal(false)}
-        onSave={handleSaveApiKey}
-        initialApiKey={currentApiKey}
-        initialModel={currentModel}
-        isRequired={!hasApiKey}
-      />
-    </>
+      {showApiModal && (
+        <div className="modal-overlay" onClick={() => hasApiKey && setShowApiModal(false)}>
+          <div className="modal-content animate-fadeIn" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Cấu hình API Key</h3>
+              {hasApiKey && (
+                <button className="modal-close" onClick={() => setShowApiModal(false)}>
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+            <div className="modal-body">
+              <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                <label>Google AI API Key <span style={{ color: '#ef4444' }}>*</span></label>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKeyState(e.target.value)}
+                  placeholder="AIza..."
+                />
+                <a
+                  href="https://aistudio.google.com/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    marginTop: '0.5rem',
+                    color: '#60a5fa',
+                    fontSize: '0.875rem',
+                    textDecoration: 'none'
+                  }}
+                >
+                  <ExternalLink size={14} />
+                  Lấy API Key miễn phí tại Google AI Studio
+                </a>
+              </div>
+
+              <div className="form-group">
+                <label>Chọn Model AI</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  {AI_MODELS.map((model) => (
+                    <label
+                      key={model.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '12px',
+                        background: selectedModel === model.id ? 'rgba(59, 130, 246, 0.2)' : '#0f172a',
+                        border: `1px solid ${selectedModel === model.id ? '#3b82f6' : '#1e3a5f'}`,
+                        borderRadius: '8px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="model"
+                        checked={selectedModel === model.id}
+                        onChange={() => setSelectedModelState(model.id)}
+                        style={{ accentColor: '#3b82f6' }}
+                      />
+                      <div>
+                        <p style={{ color: '#e2e8f0', fontWeight: '500' }}>{model.name}</p>
+                        <p style={{ color: '#64748b', fontSize: '0.75rem' }}>{model.description}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="submit-btn" onClick={handleSaveApiSettings}>
+                Lưu và tiếp tục
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
 export default App;
-
