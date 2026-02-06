@@ -43,6 +43,7 @@ const App: React.FC = () => {
   const [lessonFile, setLessonFile] = useState<File | null>(null);
   const [lessonText, setLessonText] = useState('');
   const [ppctFile, setPpctFile] = useState<File | null>(null);
+  const [originalFileBuffer, setOriginalFileBuffer] = useState<ArrayBuffer | null>(null);
 
   // Options
   const [includeAI, setIncludeAI] = useState(false);
@@ -90,6 +91,8 @@ const App: React.FC = () => {
       } else if (file.name.endsWith('.docx')) {
         // Use mammoth for docx
         const arrayBuffer = await file.arrayBuffer();
+        // Lưu ArrayBuffer gốc để sử dụng khi export
+        setOriginalFileBuffer(arrayBuffer);
         if ((window as any).mammoth) {
           const result = await (window as any).mammoth.extractRawText({ arrayBuffer });
           setLessonText(result.value);
@@ -310,7 +313,7 @@ const App: React.FC = () => {
                 <button
                   onClick={async () => {
                     if (result) {
-                      await downloadAsDocx(result, includeAI, lessonText);
+                      await downloadAsDocx(result, includeAI, lessonText, originalFileBuffer || undefined);
                     }
                   }}
                   style={{
