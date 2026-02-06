@@ -310,7 +310,7 @@ const App: React.FC = () => {
                 <button
                   onClick={() => {
                     if (result && includeAI) {
-                      downloadAsDocx(result, includeAI);
+                      downloadAsDocx(result, includeAI, lessonText);
                     }
                   }}
                   disabled={!includeAI}
