@@ -44,6 +44,7 @@ const App: React.FC = () => {
   const [ppctFile, setPpctFile] = useState<File | null>(null);
 
   // Options
+  const [includeAI, setIncludeAI] = useState(false);
   const [analyzeOnly, setAnalyzeOnly] = useState(false);
   const [detailedReport, setDetailedReport] = useState(false);
 
@@ -257,6 +258,131 @@ const App: React.FC = () => {
                 </div>
               </>
             )}
+
+            {/* Success Message Section */}
+            <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+              <div style={{
+                width: '64px',
+                height: '64px',
+                background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 1rem'
+              }}>
+                <Check size={32} color="white" />
+              </div>
+              <h3 style={{ color: '#22c55e', fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.5rem' }}>
+                Phân tích giáo án thành công!
+              </h3>
+              <p style={{ color: '#94a3b8', marginBottom: '1.5rem' }}>
+                Đã tạo <strong style={{ color: '#60a5fa' }}>{result.activities?.length || 0} phần</strong> nội dung NLS để chèn vào giáo án.
+              </p>
+
+              {/* Info badges */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                <div style={{
+                  padding: '12px 20px',
+                  background: 'rgba(34, 197, 94, 0.15)',
+                  border: '1px solid #22c55e',
+                  borderRadius: '8px',
+                  color: '#22c55e',
+                  fontSize: '0.875rem'
+                }}>
+                  ✓ XML Injection: Chèn NLS vào <strong>nhiều vị trí</strong> trong file gốc
+                </div>
+                <div style={{
+                  padding: '12px 20px',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid #ef4444',
+                  borderRadius: '8px',
+                  color: '#ef4444',
+                  fontSize: '0.875rem'
+                }}>
+                  ★ Nội dung NLS: <strong>màu đỏ</strong> • Phân bố vào: Mục tiêu + Các Hoạt động
+                </div>
+              </div>
+
+              {/* Download Section */}
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', alignItems: 'center' }}>
+                <button
+                  onClick={() => {
+                    // TODO: Implement download functionality
+                    alert('Tính năng tải về sẽ được cập nhật!');
+                  }}
+                  disabled={!includeAI}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '14px 48px',
+                    background: includeAI
+                      ? 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)'
+                      : '#374151',
+                    border: 'none',
+                    borderRadius: '12px',
+                    color: includeAI ? 'white' : '#6b7280',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    cursor: includeAI ? 'pointer' : 'not-allowed',
+                    opacity: includeAI ? 1 : 0.6,
+                    transition: 'all 0.2s ease'
+                  }}
+                  title={!includeAI ? 'Vui lòng chọn "Thêm năng lực trí tuệ nhân tạo vào giáo án" để tải file' : ''}
+                >
+                  <FileDown size={20} />
+                  Tải về .docx
+                </button>
+                <button
+                  style={{
+                    padding: '14px',
+                    background: '#1e293b',
+                    border: '1px solid #334155',
+                    borderRadius: '12px',
+                    color: '#94a3b8',
+                    cursor: 'pointer'
+                  }}
+                  title="Sao chép nội dung"
+                >
+                  <FileText size={20} />
+                </button>
+              </div>
+
+              {!includeAI && (
+                <p style={{
+                  marginTop: '1rem',
+                  color: '#f59e0b',
+                  fontSize: '0.875rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}>
+                  <AlertCircle size={16} />
+                  Chọn "Thêm năng lực trí tuệ nhân tạo vào giáo án" để tải file
+                </p>
+              )}
+
+              {/* Preview toggle */}
+              <button
+                style={{
+                  marginTop: '1.5rem',
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#60a5fa',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  margin: '1.5rem auto 0',
+                  fontSize: '0.875rem'
+                }}
+              >
+                Xem trước nội dung ({result.activities?.length || 0} phần)
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
         </main>
       </div>
@@ -416,6 +542,17 @@ const App: React.FC = () => {
               Tùy chọn nâng cao
             </div>
             <div className="checkbox-group">
+              <label className="checkbox-item ai-option">
+                <input
+                  type="checkbox"
+                  checked={includeAI}
+                  onChange={(e) => setIncludeAI(e.target.checked)}
+                />
+                <div>
+                  <span className="ai-option-title">Thêm năng lực trí tuệ nhân tạo vào giáo án</span>
+                  <span className="ai-option-desc">AI sẽ phân tích và gán năng lực AI phù hợp vào các hoạt động dạy học (hiển thị màu xanh lam)</span>
+                </div>
+              </label>
               <label className="checkbox-item">
                 <input
                   type="checkbox"
