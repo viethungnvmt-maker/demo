@@ -308,9 +308,9 @@ const App: React.FC = () => {
               {/* Download Section */}
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', alignItems: 'center' }}>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (result) {
-                      downloadAsDocx(result, includeAI, lessonText);
+                      await downloadAsDocx(result, includeAI, lessonText);
                     }
                   }}
                   style={{
