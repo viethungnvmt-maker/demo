@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FileText, Upload, Settings, Sparkles, Key, ExternalLink, X, Check, AlertCircle, Loader2, FileDown, ChevronRight } from 'lucide-react';
 import { analyzeLessonPlan, getApiKey, setApiKey, getSelectedModel, setSelectedModel } from './services/geminiService';
-import { downloadAsDocx } from './services/docxService';
+import { downloadAsDocx, copyNLSToClipboard } from './services/docxService';
 import { LessonPlanData } from './types';
 
 // Danh sách môn học
@@ -61,6 +61,7 @@ const App: React.FC = () => {
   const [loadingMessage, setLoadingMessage] = useState('');
   const [result, setResult] = useState<LessonPlanData | null>(null);
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
 
   // Refs
   const lessonInputRef = useRef<HTMLInputElement>(null);
@@ -335,18 +336,47 @@ const App: React.FC = () => {
                   Tải về .docx
                 </button>
                 <button
+                  onClick={async () => {
+                    if (result) {
+                      const success = await copyNLSToClipboard(result, includeAI);
+                      if (success) {
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 3000);
+                      }
+                    }
+                  }}
                   style={{
-                    padding: '14px',
-                    background: '#1e293b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '14px 24px',
+                    background: copied ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)' : '#1e293b',
                     border: '1px solid #334155',
                     borderRadius: '12px',
-                    color: '#94a3b8',
-                    cursor: 'pointer'
+                    color: copied ? 'white' : '#94a3b8',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: '500',
+                    transition: 'all 0.2s ease'
                   }}
-                  title="Sao chép nội dung"
+                  title="Sao chép nội dung NLS để paste vào file Word gốc"
                 >
-                  <FileText size={20} />
+                  {copied ? <Check size={20} /> : <FileText size={20} />}
+                  {copied ? 'Đã copy!' : 'Copy NLS'}
                 </button>
+              </div>
+
+              {/* Hướng dẫn */}
+              <div style={{
+                marginTop: '1rem',
+                padding: '1rem',
+                background: 'rgba(34, 197, 94, 0.1)',
+                borderRadius: '12px',
+                border: '1px solid rgba(34, 197, 94, 0.2)'
+              }}>
+                <p style={{ color: '#22c55e', fontSize: '0.875rem', margin: 0, textAlign: 'center' }}>
+                  💡 <strong>Hướng dẫn:</strong> Bấm "Copy NLS" → Mở file Word gốc → Paste vào mục "2. Về năng lực:" để giữ nguyên định dạng
+                </p>
               </div>
 
               {includeAI && (
