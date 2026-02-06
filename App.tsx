@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FileText, Upload, Settings, Sparkles, Key, ExternalLink, X, Check, AlertCircle, Loader2, FileDown, ChevronRight } from 'lucide-react';
 import { analyzeLessonPlan, getApiKey, setApiKey, getSelectedModel, setSelectedModel } from './services/geminiService';
+import { downloadAsDocx } from './services/docxService';
 import { LessonPlanData } from './types';
 
 // Danh sách môn học
@@ -308,8 +309,9 @@ const App: React.FC = () => {
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', alignItems: 'center' }}>
                 <button
                   onClick={() => {
-                    // TODO: Implement download functionality
-                    alert('Tính năng tải về sẽ được cập nhật!');
+                    if (result && includeAI) {
+                      downloadAsDocx(result, includeAI);
+                    }
                   }}
                   disabled={!includeAI}
                   style={{
