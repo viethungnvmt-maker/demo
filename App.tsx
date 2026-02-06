@@ -309,29 +309,24 @@ const App: React.FC = () => {
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', alignItems: 'center' }}>
                 <button
                   onClick={() => {
-                    if (result && includeAI) {
+                    if (result) {
                       downloadAsDocx(result, includeAI, lessonText);
                     }
                   }}
-                  disabled={!includeAI}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
                     padding: '14px 48px',
-                    background: includeAI
-                      ? 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)'
-                      : '#374151',
+                    background: 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)',
                     border: 'none',
                     borderRadius: '12px',
-                    color: includeAI ? 'white' : '#6b7280',
+                    color: 'white',
                     fontSize: '1rem',
                     fontWeight: '600',
-                    cursor: includeAI ? 'pointer' : 'not-allowed',
-                    opacity: includeAI ? 1 : 0.6,
+                    cursor: 'pointer',
                     transition: 'all 0.2s ease'
                   }}
-                  title={!includeAI ? 'Vui lòng chọn "Thêm năng lực trí tuệ nhân tạo vào giáo án" để tải file' : ''}
                 >
                   <FileDown size={20} />
                   Tải về .docx
@@ -351,18 +346,17 @@ const App: React.FC = () => {
                 </button>
               </div>
 
-              {!includeAI && (
+              {includeAI && (
                 <p style={{
                   marginTop: '1rem',
-                  color: '#f59e0b',
+                  color: '#22c55e',
                   fontSize: '0.875rem',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '6px'
                 }}>
-                  <AlertCircle size={16} />
-                  Chọn "Thêm năng lực trí tuệ nhân tạo vào giáo án" để tải file
+                  ✓ Đã bật tích hợp Năng lực trí tuệ nhân tạo
                 </p>
               )}
 
