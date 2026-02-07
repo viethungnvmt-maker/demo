@@ -314,7 +314,8 @@ const App: React.FC = () => {
                 <button
                   onClick={async () => {
                     if (result) {
-                      await downloadAsDocx(result, includeAI, lessonText, originalFileBuffer || undefined);
+                      const originalFileName = lessonFile?.name || '';
+                      await downloadAsDocx(result, includeAI, lessonText, originalFileBuffer || undefined, originalFileName);
                     }
                   }}
                   style={{
