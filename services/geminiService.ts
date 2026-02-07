@@ -93,14 +93,50 @@ export const analyzeLessonPlan = async (content: string, selectedSkill?: Skill):
       model: model,
       contents: `${roleContext}
 
-    Hãy phân tích giáo án sau và tích hợp năng lực số (Digital Competency) theo khung năng lực số dành cho học sinh phổ thông Việt Nam. 
+    Hãy phân tích giáo án sau và tích hợp năng lực số (Digital Competency) theo KHUNG NĂNG LỰC SỐ DÀNH CHO HỌC SINH PHỔ THÔNG VIỆT NAM.
+    
+    KHUNG NĂNG LỰC SỐ GỒM 6 MIỀN:
+    1. Khai thác dữ liệu và thông tin (mã: 1.x)
+       - 1.1: Duyệt, tìm kiếm, lọc dữ liệu và nội dung số
+       - 1.2: Đánh giá dữ liệu, thông tin và nội dung số
+       - 1.3: Quản lý dữ liệu, thông tin và nội dung số
+    2. Giao tiếp và Hợp tác (mã: 2.x)
+       - 2.1: Tương tác qua công nghệ số
+       - 2.2: Chia sẻ qua công nghệ số
+       - 2.3: Tham gia với tư cách công dân qua công nghệ số
+       - 2.4: Hợp tác qua công nghệ số
+       - 2.5: Chuẩn mực giao tiếp
+       - 2.6: Quản lý định danh số
+    3. Sáng tạo nội dung số (mã: 3.x)
+       - 3.1: Phát triển nội dung số
+       - 3.2: Tích hợp và tái tạo nội dung số
+       - 3.3: Bản quyền và giấy phép
+       - 3.4: Lập trình
+    4. An toàn số (mã: 4.x)
+       - 4.1: Bảo vệ thiết bị
+       - 4.2: Bảo vệ dữ liệu cá nhân và quyền riêng tư
+       - 4.3: Bảo vệ sức khỏe và phúc lợi
+       - 4.4: Bảo vệ môi trường
+    5. Giải quyết vấn đề (mã: 5.x)
+       - 5.1: Giải quyết vấn đề kỹ thuật
+       - 5.2: Xác định nhu cầu và giải pháp công nghệ
+       - 5.3: Sử dụng công nghệ số một cách sáng tạo
+       - 5.4: Xác định khoảng cách năng lực số
+    6. Ứng dụng AI (mã: 6.x) - Năng lực mới
+       - 6.1: Sử dụng công cụ AI hỗ trợ học tập
+       - 6.2: Đánh giá và kiểm chứng thông tin từ AI
+
+    QUY TẮC MÃ CHỈ THỊ (frameworkRef):
+    Format: [Miền].[Năng lực].[Cấp độ][Số thứ tự][Ký hiệu]
+    - Cấp độ: TC (Tiểu học 1-5), TH (THCS 6-9), PT (THPT 10-12)
+    - Ví dụ: 1.3.TC1a, 2.1.TH2b, 3.1.PT1a, 5.3.TH1a...
     
     NỘI DUNG GIÁO ÁN:
     ${content}
 
     YÊU CẦU:
     1. Tóm tắt ngắn gọn giáo án.
-    2. Đề xuất ít nhất 3 mục tiêu năng lực số cụ thể phù hợp với bài dạy.
+    2. Đề xuất ít nhất 3 mục tiêu năng lực số cụ thể. VỚI MỖI MỤC TIÊU, BẮT BUỘC ghi rõ mã chỉ thị (frameworkRef) theo định dạng trên.
     3. Đề xuất các công cụ số phù hợp (ví dụ: Kahoot, Quizizz, Canva, Google Earth, Padlet...).
     4. Chia giáo án thành 4 hoạt động chính: Khởi động, Khám phá kiến thức, Luyện tập, Vận dụng. Với mỗi hoạt động, hãy đề xuất 1 hoạt động số cụ thể giúp tích hợp CNTT hiệu quả.`,
       config: {

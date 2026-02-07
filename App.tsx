@@ -47,8 +47,6 @@ const App: React.FC = () => {
 
   // Options
   const [includeAI, setIncludeAI] = useState(false);
-  const [analyzeOnly, setAnalyzeOnly] = useState(false);
-  const [detailedReport, setDetailedReport] = useState(false);
 
   // API Key state
   const [showApiModal, setShowApiModal] = useState(false);
@@ -582,22 +580,6 @@ const App: React.FC = () => {
                   <span className="ai-option-title">Thêm năng lực trí tuệ nhân tạo vào giáo án</span>
                   <span className="ai-option-desc">AI sẽ phân tích và gán năng lực AI phù hợp vào các hoạt động dạy học (hiển thị màu xanh lam)</span>
                 </div>
-              </label>
-              <label className="checkbox-item">
-                <input
-                  type="checkbox"
-                  checked={analyzeOnly}
-                  onChange={(e) => setAnalyzeOnly(e.target.checked)}
-                />
-                <span>Chỉ phân tích, không chỉnh sửa</span>
-              </label>
-              <label className="checkbox-item">
-                <input
-                  type="checkbox"
-                  checked={detailedReport}
-                  onChange={(e) => setDetailedReport(e.target.checked)}
-                />
-                <span>Kèm báo cáo chi tiết</span>
               </label>
             </div>
           </div>

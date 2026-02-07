@@ -9,56 +9,33 @@ declare global {
 }
 
 /**
- * Tạo XML paragraph với text màu đỏ (NLS) - tuân theo chuẩn DOCX OOXML
+ * Escape XML special characters
  */
-const createRedParagraphXml = (text: string): string => {
-  // Escape XML special characters
-  const escaped = text
+const escapeXml = (text: string): string => {
+  return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
-
-  return `<w:p xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-    <w:pPr>
-      <w:ind w:left="720" w:hanging="360"/>
-    </w:pPr>
-    <w:r>
-      <w:rPr>
-        <w:color w:val="FF0000"/>
-        <w:sz w:val="26"/>
-        <w:szCs w:val="26"/>
-      </w:rPr>
-      <w:t xml:space="preserve">${escaped}</w:t>
-    </w:r>
-  </w:p>`;
 };
 
 /**
- * Tạo paragraph với bullet point màu đỏ
+ * Tạo XML paragraph với text màu đỏ (NLS) - KHÔNG có namespace declaration
+ * Namespace đã được định nghĩa ở root element của document.xml
  */
-const createBulletParagraphXml = (text: string): string => {
-  const escaped = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+const createRedParagraphXml = (text: string, indent: number = 720): string => {
+  const escaped = escapeXml(text);
+  return `<w:p><w:pPr><w:ind w:left="${indent}" w:firstLine="0"/></w:pPr><w:r><w:rPr><w:color w:val="FF0000"/><w:b/></w:rPr><w:t>${escaped}</w:t></w:r></w:p>`;
+};
 
-  return `<w:p xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-    <w:pPr>
-      <w:ind w:left="1080" w:hanging="360"/>
-    </w:pPr>
-    <w:r>
-      <w:rPr>
-        <w:color w:val="FF0000"/>
-        <w:sz w:val="26"/>
-        <w:szCs w:val="26"/>
-      </w:rPr>
-      <w:t xml:space="preserve">+ ${escaped}</w:t>
-    </w:r>
-  </w:p>`;
+/**
+ * Tạo paragraph con với bullet point màu đỏ - bao gồm mã chỉ thị
+ */
+const createBulletParagraphXml = (text: string, frameworkRef?: string): string => {
+  const escaped = escapeXml(text);
+  const refText = frameworkRef ? `[${escapeXml(frameworkRef)}] ` : '';
+  return `<w:p><w:pPr><w:ind w:left="1080" w:firstLine="0"/></w:pPr><w:r><w:rPr><w:color w:val="FF0000"/></w:rPr><w:t>+ ${refText}${escaped}</w:t></w:r></w:p>`;
 };
 
 /**
@@ -70,10 +47,10 @@ const generateNLSXmlContent = (data: LessonPlanData, includeAI: boolean): string
   // Header Năng lực số
   xmlContent += createRedParagraphXml('- Năng lực số:');
 
-  // Các mục tiêu NLS
+  // Các mục tiêu NLS - bao gồm mã chỉ thị
   if (data.digitalGoals && data.digitalGoals.length > 0) {
     data.digitalGoals.forEach((goal) => {
-      xmlContent += createBulletParagraphXml(goal.description);
+      xmlContent += createBulletParagraphXml(goal.description, goal.frameworkRef);
     });
   } else {
     // Default goals nếu không có
@@ -85,54 +62,76 @@ const generateNLSXmlContent = (data: LessonPlanData, includeAI: boolean): string
   // Năng lực AI nếu được bật
   if (includeAI) {
     xmlContent += createRedParagraphXml('- Năng lực trí tuệ nhân tạo:');
-    xmlContent += createBulletParagraphXml('Sử dụng công cụ AI hỗ trợ học tập có trách nhiệm');
-    xmlContent += createBulletParagraphXml('Đánh giá và kiểm chứng thông tin từ AI');
+    xmlContent += createBulletParagraphXml('Sử dụng công cụ AI hỗ trợ học tập có trách nhiệm', '6.1');
+    xmlContent += createBulletParagraphXml('Đánh giá và kiểm chứng thông tin từ AI', '6.2');
   }
 
   return xmlContent;
 };
 
 /**
- * Tìm vị trí thích hợp để chèn NLS (sau "năng lực" hoặc sau "mục tiêu")
+ * Tìm tất cả các vị trí chứa pattern trong XML  
+ */
+const findAllMatches = (xmlContent: string, pattern: RegExp): number[] => {
+  const positions: number[] = [];
+  let match;
+  const globalPattern = new RegExp(pattern.source, 'gi');
+  while ((match = globalPattern.exec(xmlContent)) !== null) {
+    positions.push(match.index);
+  }
+  return positions;
+};
+
+/**
+ * Tìm vị trí chèn NLS - ưu tiên tìm "Năng lực" trong mục tiêu
  */
 const findInsertPosition = (xmlContent: string): { position: number; found: boolean } => {
-  // Tìm các pattern phổ biến trong giáo án Việt Nam
-  const patterns = [
-    /Về năng lực/i,
-    /năng lực:/i,
-    /2\.\s*Năng lực/i,
-    /năng lực chung/i,
-    /năng lực đặc thù/i,
-    /năng lực riêng/i,
-    /MỤC TIÊU/i,
-    /I\.\s*MỤC TIÊU/i
+  // Pattern ưu tiên theo thứ tự: cụ thể -> chung
+  const priorityPatterns = [
+    /năng\s*lực\s*đặc\s*thù/i,     // "Năng lực đặc thù"
+    /năng\s*lực\s*chung/i,          // "Năng lực chung"  
+    /về\s*năng\s*lực/i,             // "Về năng lực"
+    /2[.)]\s*Năng\s*lực/i,          // "2. Năng lực" hoặc "2) Năng lực"
+    /năng\s*lực\s*:/i,              // "Năng lực:"
   ];
 
-  let bestMatch = { position: -1, found: false };
+  for (const pattern of priorityPatterns) {
+    const matches = findAllMatches(xmlContent, pattern);
+    if (matches.length > 0) {
+      // Lấy match đầu tiên
+      const matchPos = matches[0];
 
-  for (const pattern of patterns) {
-    const match = xmlContent.match(pattern);
-    if (match && match.index !== undefined) {
-      // Tìm thẻ </w:p> tiếp theo sau vị trí tìm được
-      const afterMatch = xmlContent.indexOf('</w:p>', match.index);
-      if (afterMatch !== -1) {
-        const insertPos = afterMatch + '</w:p>'.length;
-        if (bestMatch.position === -1 || insertPos < bestMatch.position) {
-          bestMatch = { position: insertPos, found: true };
-        }
+      // Tìm </w:p> SAU vị trí match này (kết thúc của paragraph chứa text)
+      // Nhưng cần tìm </w:p> gần nhất phía sau, không phải quá xa
+      let searchStart = matchPos;
+      let closingTag = xmlContent.indexOf('</w:p>', searchStart);
+
+      // Giới hạn tìm kiếm trong 2000 ký tự
+      if (closingTag !== -1 && closingTag - matchPos < 2000) {
+        return { position: closingTag + '</w:p>'.length, found: true };
       }
     }
   }
 
-  // Fallback: tìm paragraph đầu tiên nếu không tìm được
-  if (!bestMatch.found) {
-    const firstPEnd = xmlContent.indexOf('</w:p>');
-    if (firstPEnd !== -1) {
-      bestMatch = { position: firstPEnd + '</w:p>'.length, found: true };
+  // Fallback pattern rộng hơn
+  const fallbackPatterns = [
+    /MỤC\s*TIÊU/i,
+    /I[.)]\s*MỤC\s*TIÊU/i
+  ];
+
+  for (const pattern of fallbackPatterns) {
+    const matches = findAllMatches(xmlContent, pattern);
+    if (matches.length > 0) {
+      const matchPos = matches[0];
+      // Tìm paragraph tiếp theo sau đoạn mục tiêu
+      let closingTag = xmlContent.indexOf('</w:p>', matchPos);
+      if (closingTag !== -1) {
+        return { position: closingTag + '</w:p>'.length, found: true };
+      }
     }
   }
 
-  return bestMatch;
+  return { position: -1, found: false };
 };
 
 /**
@@ -142,14 +141,11 @@ const getOutputFileName = (originalFileName: string): string => {
   if (!originalFileName) {
     return 'GiaoAn_NLS.docx';
   }
-
-  // Bỏ phần mở rộng và thêm _NLS
   const lastDotIndex = originalFileName.lastIndexOf('.');
   if (lastDotIndex > 0) {
     const nameWithoutExt = originalFileName.substring(0, lastDotIndex);
     return `${nameWithoutExt}_NLS.docx`;
   }
-
   return `${originalFileName}_NLS.docx`;
 };
 
@@ -164,18 +160,15 @@ export const downloadAsDocx = async (
   originalFileName?: string
 ): Promise<void> => {
   try {
-    // Kiểm tra JSZip đã load chưa
     if (!window.JSZip) {
       console.error('JSZip not loaded');
       alert('Lỗi: Thư viện JSZip chưa được tải. Vui lòng refresh trang.');
       return;
     }
 
-    // Nếu có file DOCX gốc, sử dụng XML injection
-    if (originalFile && originalFileName?.endsWith('.docx')) {
+    if (originalFile && originalFileName?.toLowerCase().endsWith('.docx')) {
       await modifyOriginalDocx(originalFile, data, includeAI, originalFileName);
     } else {
-      // Fallback: tạo file text nếu không có file gốc hoặc không phải DOCX
       await downloadAsTxt(data, includeAI, originalFileName);
     }
   } catch (error) {
@@ -185,7 +178,7 @@ export const downloadAsDocx = async (
 };
 
 /**
- * Chỉnh sửa file DOCX gốc bằng XML injection
+ * Chỉnh sửa file DOCX gốc bằng XML injection - GIỮ NGUYÊN ĐỊNH DẠNG
  */
 const modifyOriginalDocx = async (
   originalFile: ArrayBuffer,
@@ -195,62 +188,62 @@ const modifyOriginalDocx = async (
 ): Promise<void> => {
   const JSZip = window.JSZip;
 
-  // Đọc file DOCX gốc (thực chất là file ZIP)
+  // Đọc file DOCX gốc (là file ZIP)
   const zip = await JSZip.loadAsync(originalFile);
 
-  // Đọc nội dung document.xml (chứa nội dung chính của DOCX)
-  const documentXml = await zip.file('word/document.xml')?.async('string');
-
-  if (!documentXml) {
+  // Lấy document.xml - nội dung chính
+  const documentXmlFile = zip.file('word/document.xml');
+  if (!documentXmlFile) {
     throw new Error('Không thể đọc nội dung file DOCX');
   }
 
-  // Tạo nội dung NLS XML
+  let documentXml: string = await documentXmlFile.async('string');
+
+  // Tạo nội dung NLS XML (không có namespace thừa)
   const nlsXmlContent = generateNLSXmlContent(data, includeAI);
 
-  // Tìm vị trí để chèn
+  // Tìm vị trí chèn
   const insertResult = findInsertPosition(documentXml);
 
   let modifiedXml: string;
 
   if (insertResult.found && insertResult.position > 0) {
-    // Chèn NLS XML vào vị trí tìm được
+    // Chèn NLS XML vào đúng vị trí tìm được
     modifiedXml =
       documentXml.slice(0, insertResult.position) +
       nlsXmlContent +
       documentXml.slice(insertResult.position);
+    console.log('Đã chèn NLS vào vị trí:', insertResult.position);
   } else {
-    // Fallback: chèn vào cuối <w:body>
+    // Fallback: chèn vào cuối body
     const bodyEnd = documentXml.lastIndexOf('</w:body>');
     if (bodyEnd !== -1) {
       modifiedXml =
         documentXml.slice(0, bodyEnd) +
         nlsXmlContent +
         documentXml.slice(bodyEnd);
+      console.log('Fallback: chèn NLS vào cuối body');
     } else {
       throw new Error('Không thể tìm vị trí chèn nội dung');
     }
   }
 
-  // Cập nhật document.xml trong ZIP
+  // Cập nhật document.xml
   zip.file('word/document.xml', modifiedXml);
 
-  // Tạo file DOCX mới
+  // Tạo file DOCX mới - GIỮ NGUYÊN tất cả file khác (styles, fonts, images...)
   const newDocxBlob = await zip.generateAsync({
     type: 'blob',
     mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     compression: 'DEFLATE',
-    compressionOptions: { level: 9 }
+    compressionOptions: { level: 6 }
   });
 
-  // Tạo tên file output
   const outputFileName = getOutputFileName(originalFileName);
 
-  // Download file
   if (window.saveAs) {
     window.saveAs(newDocxBlob, outputFileName);
   } else {
-    // Fallback
     const url = URL.createObjectURL(newDocxBlob);
     const link = document.createElement('a');
     link.href = url;
@@ -263,7 +256,7 @@ const modifyOriginalDocx = async (
 };
 
 /**
- * Fallback: Download dưới dạng TXT nếu không có file DOCX gốc
+ * Fallback: Download dưới dạng TXT
  */
 const downloadAsTxt = async (
   data: LessonPlanData,
@@ -281,7 +274,6 @@ const downloadAsTxt = async (
   content += '📌 CHÈN VÀO PHẦN "I. MỤC TIÊU" → mục "2. Về năng lực:"\n';
   content += '────────────────────────────────────────────────────────\n\n';
 
-  // Năng lực số
   content += '   - Năng lực số:\n';
   if (data.digitalGoals && data.digitalGoals.length > 0) {
     data.digitalGoals.forEach((goal) => {
@@ -289,14 +281,12 @@ const downloadAsTxt = async (
     });
   }
 
-  // Năng lực AI
   if (includeAI) {
     content += '   - Năng lực trí tuệ nhân tạo:\n';
     content += '      + Sử dụng công cụ AI hỗ trợ học tập có trách nhiệm\n';
     content += '      + Đánh giá và kiểm chứng thông tin từ AI\n';
   }
 
-  // Tạo tên file
   const outputFileName = originalFileName
     ? originalFileName.replace(/\.[^.]+$/, '_NLS.txt')
     : 'Noi_dung_NLS.txt';
@@ -318,16 +308,16 @@ const downloadAsTxt = async (
 };
 
 /**
- * Tạo nội dung NLS để copy vào clipboard
+ * Tạo nội dung NLS để copy vào clipboard - bao gồm mã chỉ thị
  */
 const generateNLSContent = (data: LessonPlanData, includeAI: boolean): string => {
   let content = '';
 
-  // Năng lực số
   content += '   - Năng lực số:\n';
   if (data.digitalGoals && data.digitalGoals.length > 0) {
     data.digitalGoals.forEach((goal) => {
-      content += `      + ${goal.description}\n`;
+      const ref = goal.frameworkRef ? `[${goal.frameworkRef}] ` : '';
+      content += `      + ${ref}${goal.description}\n`;
     });
   } else {
     content += '      + Khai thác và sử dụng các công cụ số trong học tập\n';
@@ -335,11 +325,10 @@ const generateNLSContent = (data: LessonPlanData, includeAI: boolean): string =>
     content += '      + Đánh giá và chọn lọc thông tin số\n';
   }
 
-  // Năng lực AI
   if (includeAI) {
     content += '   - Năng lực trí tuệ nhân tạo:\n';
-    content += '      + Sử dụng công cụ AI hỗ trợ học tập có trách nhiệm\n';
-    content += '      + Đánh giá và kiểm chứng thông tin từ AI\n';
+    content += '      + [6.1] Sử dụng công cụ AI hỗ trợ học tập có trách nhiệm\n';
+    content += '      + [6.2] Đánh giá và kiểm chứng thông tin từ AI\n';
   }
 
   return content;
